@@ -1,0 +1,72 @@
+1755341774: mosquitto version 2.0.22 starting
+1755341774: Config loaded from /mosquitto/config/mosquitto.conf.
+1755341774: Starting in local only mode. Connections will only be possible from clients running on this machine.
+1755341774: Create a configuration file which defines a listener to allow remote access.
+1755341774: For more details see https://mosquitto.org/documentation/authentication-methods/
+1755341774: Opening ipv4 listen socket on port 1883.
+1755341774: Opening ipv6 listen socket on port 1883.
+1755341774: mosquitto version 2.0.22 running
+1755342638: mosquitto version 2.0.22 terminating
+1755342638: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1755342779: mosquitto version 2.0.22 starting
+1755342779: Config loaded from /mosquitto/config/mosquitto.conf.
+1755342779: Starting in local only mode. Connections will only be possible from clients running on this machine.
+1755342779: Create a configuration file which defines a listener to allow remote access.
+1755342779: For more details see https://mosquitto.org/documentation/authentication-methods/
+1755342779: Opening ipv4 listen socket on port 1883.
+1755342779: Opening ipv6 listen socket on port 1883.
+1755342779: mosquitto version 2.0.22 running
+1755343070: mosquitto version 2.0.22 terminating
+1755343070: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1755343357: mosquitto version 2.0.22 starting
+1755343357: Config loaded from /mosquitto/config/mosquitto.conf.
+1755343357: Starting in local only mode. Connections will only be possible from clients running on this machine.
+1755343357: Create a configuration file which defines a listener to allow remote access.
+1755343357: For more details see https://mosquitto.org/documentation/authentication-methods/
+1755343357: Opening ipv4 listen socket on port 1883.
+1755343357: Opening ipv6 listen socket on port 1883.
+1755343357: mosquitto version 2.0.22 running
+1755343493: mosquitto version 2.0.22 terminating
+1755343493: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1755343494: mosquitto version 2.0.22 starting
+1755343494: Config loaded from /mosquitto/config/mosquitto.conf.
+1755343494: Starting in local only mode. Connections will only be possible from clients running on this machine.
+1755343494: Create a configuration file which defines a listener to allow remote access.
+1755343494: For more details see https://mosquitto.org/documentation/authentication-methods/
+1755343494: Opening ipv4 listen socket on port 1883.
+1755343494: Opening ipv6 listen socket on port 1883.
+1755343494: mosquitto version 2.0.22 running
+1755344341: mosquitto version 2.0.22 terminating
+1755344341: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1755344342: mosquitto version 2.0.22 starting
+1755344342: Config loaded from /mosquitto/config/mosquitto.conf.
+1755344342: Opening ipv4 listen socket on port 1883.
+1755344342: Opening ipv6 listen socket on port 1883.
+1755344342: Opening websockets listen socket on port 9001.
+1755344342: mosquitto version 2.0.22 running
+1755344347: New connection from 172.18.0.1:49128 on port 1883.
+1755344347: New client connected from 172.18.0.1:49128 as mqtt-explorer-e450ce58 (p2, c1, k60).
+1755344349: Client mqtt-explorer-e450ce58 disconnected.
+1755344421: mosquitto version 2.0.22 terminating
+1755344421: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1755344422: mosquitto version 2.0.22 starting
+1755344422: Config loaded from /mosquitto/config/mosquitto.conf.
+1755344422: Opening ipv4 listen socket on port 1883.
+1755344422: Opening ipv6 listen socket on port 1883.
+1755344422: Opening websockets listen socket on port 9001.
+1755344422: mosquitto version 2.0.22 running
+1755344434: New connection from 172.18.0.1:56228 on port 1883.
+1755344434: New client connected from 172.18.0.1:56228 as mqtt-explorer-e450ce58 (p2, c1, k60).
+1755344436: Client mqtt-explorer-e450ce58 disconnected.
+1755344437: New connection from 172.18.0.1:56234 on port 1883.
+1755344437: New client connected from 172.18.0.1:56234 as mqtt-explorer-e450ce58 (p2, c1, k60).
+1755344438: Client mqtt-explorer-e450ce58 disconnected.
+1755344454: New connection from 172.18.0.1:35944 on port 1883.
+1755344454: New client connected from 172.18.0.1:35944 as mqtt-explorer-e450ce58 (p2, c1, k60).
+1755345228: Client mqtt-explorer-e450ce58 disconnected.
+1755345728: New connection from 172.18.0.1:52720 on port 1883.
+1755345728: New client connected from 172.18.0.1:52720 as mqtt-explorer-e450ce58 (p2, c1, k60).
+1755346089: New connection from 172.18.0.5:53592 on port 1883.
+1755346089: New client connected from 172.18.0.5:53592 as bms-fake-sensor-01 (p2, c1, k15).
+1755346222: Saving in-memory database to /mosquitto/data//mosquitto.db.
+1755346985: Client mqtt-explorer-e450ce58 disconnected.
