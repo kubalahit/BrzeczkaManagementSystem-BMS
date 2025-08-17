@@ -18,3 +18,9 @@ npm-debug.log
 # Secrets
 appsettings.Development.json
 .env
+
+# Ignorowanie danych i logów z kontenerów Docker
+docker/grafana/data/
+docker/influxdb/data/
+docker/mosquitto/data/
+docker/mosquitto/log/
