@@ -1,15 +1,17 @@
 using backend;
+using InfluxDB.Client;
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// --- Rejestracja Usług ---
+builder.Services.AddControllers(); // <-- DODANA KLUCZOWA LINIA
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Rejestracja klienta MQTT jako Singleton
 builder.Services.AddSingleton<IManagedMqttClient>(serviceProvider =>
 {
     var options = new ManagedMqttClientOptionsBuilder()
@@ -21,46 +23,39 @@ builder.Services.AddSingleton<IManagedMqttClient>(serviceProvider =>
         .Build();
 
     var mqttClient = new MqttFactory().CreateManagedMqttClient();
-    mqttClient.StartAsync(options).GetAwaiter().GetResult(); // Uruchamiamy klienta przy starcie aplikacji
+    mqttClient.StartAsync(options).GetAwaiter().GetResult();
     return mqttClient;
 });
 
-builder.Services.AddHostedService<FakeSensorService>();
+// Rejestracja klienta InfluxDB jako Singleton
+builder.Services.AddSingleton<InfluxDBClient>(serviceProvider =>
+{
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    var influxUrl = configuration["INFLUXDB_URL"];
+    var influxToken = configuration["INFLUXDB_TOKEN"];
 
+    if (string.IsNullOrEmpty(influxUrl) || string.IsNullOrEmpty(influxToken))
+    {
+        throw new InvalidOperationException("InfluxDB URL or Token is not configured.");
+    }
+
+    return new InfluxDBClient(influxUrl, influxToken);
+});
+
+// Rejestracja serwisów działających w tle
+builder.Services.AddHostedService<FakeSensorService>();
+builder.Services.AddHostedService<MqttIngestionService>();
+
+
+// --- Konfiguracja Aplikacji ---
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-//app.UseHttpsRedirection();
-
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+app.MapControllers(); // <-- DODANA KLUCZOWA LINIA
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
