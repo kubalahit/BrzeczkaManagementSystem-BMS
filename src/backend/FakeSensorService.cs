@@ -1,9 +1,9 @@
-// Plik: src/BMS.Backend/FakeSensorService.cs (nowa wersja)
+// Plik: src/backend/FakeSensorService.cs (nowa wersja)
 
 using MQTTnet;
 using MQTTnet.Extensions.ManagedClient;
 
-namespace BMS.Backend;
+namespace backend;
 
 public class FakeSensorService : BackgroundService
 {

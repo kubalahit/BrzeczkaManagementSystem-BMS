@@ -39,7 +39,7 @@ services:
   backend:
     container_name: bms-backend
     build:
-      context: ./src/BMS.Backend # Wskazuje Dockerowi, gdzie jest nasz Dockerfile
+      context: ./src/backend # Wskazuje Dockerowi, gdzie jest nasz Dockerfile
     ports:
       - "8080:8080" # Mapujemy port API na naszym komputerze
     environment:
