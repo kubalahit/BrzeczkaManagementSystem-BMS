@@ -1,4 +1,3 @@
-// Plik: src/backend/Services/MqttIngestionService.cs (wersja finalna)
 using System.Text;
 using InfluxDB.Client;
 using InfluxDB.Client.Api.Domain;
@@ -30,10 +29,10 @@ public class MqttIngestionService : BackgroundService
     {
         _mqttClient.ApplicationMessageReceivedAsync += HandleReceivedMessage;
 
-        // Subskrybujemy oba tematy telemetryczne za pomocą jednego wildcarda
         await _mqttClient.SubscribeAsync("bms/telemetry/+/+");
+        await _mqttClient.SubscribeAsync("bms/status/+");
 
-        _logger.LogInformation("MqttIngestionService started and subscribed to telemetry topics.");
+        _logger.LogInformation("MqttIngestionService started and subscribed to topics.");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -45,41 +44,43 @@ public class MqttIngestionService : BackgroundService
     {
         var topic = e.ApplicationMessage.Topic;
         var payload = Encoding.UTF8.GetString(e.ApplicationMessage.PayloadSegment);
-
         var topicParts = topic.Split('/');
-        if (topicParts.Length != 4) return Task.CompletedTask; // Ignorujemy niepoprawne tematy
 
-        var chamberId = topicParts[2];
-        var measurementType = topicParts[3];
+        // Ignorujemy niepoprawnie sformatowane tematy
+        if (topicParts.Length < 3) return Task.CompletedTask;
 
+        var topicType = topicParts[1]; // "telemetry" lub "status"
+        var chamberId = topicParts[2]; // np. "chamber01"
         PointData? point = null;
 
-        // Rozróżniamy, jaki typ wiadomości otrzymaliśmy
-        switch (measurementType)
+        switch (topicType)
         {
-            case "temperature":
-                if (double.TryParse(payload, out var temperature))
+            case "telemetry":
+                if (topicParts.Length != 4) return Task.CompletedTask;
+                var measurementType = topicParts[3];
+
+                if (measurementType == "temperature" && double.TryParse(payload, out var temp))
                 {
-                    point = PointData.Measurement("temperature")
-                                     .Field("value", temperature);
+                    point = PointData.Measurement("temperature").Field("value", temp);
+                }
+                else if (measurementType == "cooler_state")
+                {
+                    int state = payload.Equals("ON", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+                    point = PointData.Measurement("cooler_state").Field("value", state);
                 }
                 break;
-            case "cooler_state":
-                // Zapisujemy ON jako 1, OFF jako 0. Ułatwi to analizę.
-                int state = payload.Equals("ON", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
-                point = PointData.Measurement("cooler_state")
-                                 .Field("value", state);
+
+            case "status":
+                int isOnline = payload.Equals("ONLINE", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+                point = PointData.Measurement("status").Field("is_online", isOnline);
                 break;
         }
 
-        // Jeśli udało się stworzyć punkt danych, zapisujemy go do bazy
         if (point != null)
         {
-            point.Tag("chamber_id", chamberId)
-                 .Timestamp(DateTime.UtcNow, WritePrecision.Ns);
-
+            point.Tag("chamber_id", chamberId).Timestamp(DateTime.UtcNow, WritePrecision.Ns);
             WriteToInfluxDb(point);
-            _logger.LogInformation("Received and stored: {Topic} -> {Payload}", topic, payload);
+            _logger.LogInformation("Stored to InfluxDB: {Topic} -> {Payload}", topic, payload);
         }
 
         return Task.CompletedTask;

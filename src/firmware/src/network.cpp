@@ -70,7 +70,7 @@ void reconnect()
     while (!mqttClient.connected())
     {
         Serial.print("Attempting MQTT connection...");
-        if (mqttClient.connect(mqtt_client_id))
+        if (mqttClient.connect(mqtt_client_id, NULL, NULL, status_topic, 1, true, "OFFLINE"))
         {
             Serial.println("connected");
             // Po połączeniu, subskrybujemy nasz temat kontrolny
