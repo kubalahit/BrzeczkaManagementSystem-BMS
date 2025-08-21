@@ -3,6 +3,9 @@ using InfluxDB.Client;
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
+using backend.Data;
+using backend.Services;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +13,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers(); // <-- DODANA KLUCZOWA LINIA
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddDbContext<BmsDbContext>(options =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("PostgresConnection");
+    options.UseNpgsql(connectionString);
+});
 
 // Rejestracja klienta MQTT jako Singleton
 builder.Services.AddSingleton<IManagedMqttClient>(serviceProvider =>
@@ -57,5 +66,18 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers(); // <-- DODANA KLUCZOWA LINIA
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var context = services.GetRequiredService<BmsDbContext>();
+    // Sprawdzamy, czy w bazie jest już jakakolwiek komora
+    if (!context.Chambers.Any())
+    {
+        // Jeśli nie, tworzymy pierwszą
+        context.Chambers.Add(new backend.Models.Chamber { Id = 1, Name = "Komora 01", TargetTemperature = 19.0, Hysteresis = 0.5 });
+        context.SaveChanges();
+    }
+}
 
 app.Run();

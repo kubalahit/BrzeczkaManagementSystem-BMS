@@ -8,7 +8,7 @@ using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Extensions.ManagedClient;
 
-namespace backend;
+namespace backend.Services;
 
 public class MqttIngestionService : BackgroundService
 {

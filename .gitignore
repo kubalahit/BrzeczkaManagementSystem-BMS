@@ -24,6 +24,7 @@ docker/grafana/data/
 docker/influxdb/data/
 docker/mosquitto/data/
 docker/mosquitto/log/
+docker/postgres/data/
 
 # Pliki generowane przez PlatformIO
 .pio/

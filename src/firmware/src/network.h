@@ -2,6 +2,9 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
+extern float targetTemperature;
+extern float hysteresis;
+
 void setupNetwork();
 void loopNetwork();
 void publishTemperature(float temp);
