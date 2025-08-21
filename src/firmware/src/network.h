@@ -8,5 +8,6 @@ extern float hysteresis;
 void setupNetwork();
 void loopNetwork();
 void publishTemperature(float temp);
+void publishCoolerState(const char *state);
 
 #endif

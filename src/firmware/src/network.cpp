@@ -14,8 +14,10 @@ float hysteresis = 0.5;         // Wartość domyślna
 char mqtt_server[40];
 
 const int mqtt_port = 1883;
+const char *status_topic = "bms/status/chamber01";
 const char *temp_topic = "bms/telemetry/chamber01/temperature";
-const char *setpoint_topic = "bms/control/chamber01/setpoint"; // <-- Temat do subskrypcji
+const char *state_topic = "bms/telemetry/chamber01/cooler_state";
+const char *setpoint_topic = "bms/control/chamber01/setpoint";
 const char *mqtt_client_id = "chamber01";
 
 WiFiClient espClient;
@@ -127,5 +129,13 @@ void publishTemperature(float temp)
         char tempString[8];
         dtostrf(temp, 4, 2, tempString);
         mqttClient.publish(temp_topic, tempString);
+    }
+}
+
+void publishCoolerState(const char *state)
+{
+    if (mqttClient.connected())
+    {
+        mqttClient.publish(state_topic, state);
     }
 }

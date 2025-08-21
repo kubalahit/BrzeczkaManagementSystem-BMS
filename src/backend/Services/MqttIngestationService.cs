@@ -1,5 +1,4 @@
-// Plik: src/backend/MqttIngestionService.cs (poprawiona wersja)
-
+// Plik: src/backend/Services/MqttIngestionService.cs (wersja finalna)
 using System.Text;
 using InfluxDB.Client;
 using InfluxDB.Client.Api.Domain;
@@ -18,27 +17,23 @@ public class MqttIngestionService : BackgroundService
     private readonly string? _influxOrg;
     private readonly string? _influxBucket;
 
-    public MqttIngestionService(ILogger<MqttIngestionService> logger, IManagedMqttClient mqttClient, IConfiguration configuration)
+    public MqttIngestionService(ILogger<MqttIngestionService> logger, IManagedMqttClient mqttClient, InfluxDBClient influxClient, IConfiguration configuration)
     {
         _logger = logger;
         _mqttClient = mqttClient;
-
-        var influxUrl = configuration["INFLUXDB_URL"];
-        var influxToken = configuration["INFLUXDB_TOKEN"];
-
+        _influxClient = influxClient;
         _influxOrg = configuration["INFLUXDB_ORG"];
         _influxBucket = configuration["INFLUXDB_BUCKET"];
-
-        _influxClient = new InfluxDBClient(influxUrl, influxToken);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _mqttClient.ApplicationMessageReceivedAsync += HandleReceivedMessage;
 
-        await _mqttClient.SubscribeAsync("bms/telemetry/+/temperature");
+        // Subskrybujemy oba tematy telemetryczne za pomocą jednego wildcarda
+        await _mqttClient.SubscribeAsync("bms/telemetry/+/+");
 
-        _logger.LogInformation("MqttIngestionService started and subscribed to topics.");
+        _logger.LogInformation("MqttIngestionService started and subscribed to telemetry topics.");
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -52,38 +47,51 @@ public class MqttIngestionService : BackgroundService
         var payload = Encoding.UTF8.GetString(e.ApplicationMessage.PayloadSegment);
 
         var topicParts = topic.Split('/');
-        if (topicParts.Length != 4 || !double.TryParse(payload, out var temperature))
-        {
-            _logger.LogWarning("Invalid message format. Topic: {Topic}, Payload: {Payload}", topic, payload);
-            return Task.CompletedTask;
-        }
+        if (topicParts.Length != 4) return Task.CompletedTask; // Ignorujemy niepoprawne tematy
 
         var chamberId = topicParts[2];
+        var measurementType = topicParts[3];
 
-        WriteToInfluxDb(chamberId, temperature);
+        PointData? point = null;
+
+        // Rozróżniamy, jaki typ wiadomości otrzymaliśmy
+        switch (measurementType)
+        {
+            case "temperature":
+                if (double.TryParse(payload, out var temperature))
+                {
+                    point = PointData.Measurement("temperature")
+                                     .Field("value", temperature);
+                }
+                break;
+            case "cooler_state":
+                // Zapisujemy ON jako 1, OFF jako 0. Ułatwi to analizę.
+                int state = payload.Equals("ON", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+                point = PointData.Measurement("cooler_state")
+                                 .Field("value", state);
+                break;
+        }
+
+        // Jeśli udało się stworzyć punkt danych, zapisujemy go do bazy
+        if (point != null)
+        {
+            point.Tag("chamber_id", chamberId)
+                 .Timestamp(DateTime.UtcNow, WritePrecision.Ns);
+
+            WriteToInfluxDb(point);
+            _logger.LogInformation("Received and stored: {Topic} -> {Payload}", topic, payload);
+        }
 
         return Task.CompletedTask;
     }
 
-    private void WriteToInfluxDb(string chamberId, double temperature)
+    private void WriteToInfluxDb(PointData point)
     {
-        // Poprawka: Sprawdzamy czy konfiguracja została wczytana
         if (string.IsNullOrEmpty(_influxOrg) || string.IsNullOrEmpty(_influxBucket))
         {
-            _logger.LogError("InfluxDB organization or bucket not configured. Skipping write.");
+            _logger.LogError("InfluxDB not configured. Skipping write.");
             return;
         }
-
-        using var writeApi = _influxClient.GetWriteApi();
-
-        var point = PointData
-            .Measurement("temperature")
-            .Tag("chamber_id", chamberId)
-            .Field("value", temperature)
-            .Timestamp(DateTime.UtcNow, WritePrecision.Ns);
-
-        writeApi.WritePoint(point, _influxBucket, _influxOrg);
-
-        _logger.LogInformation("Successfully wrote temperature {Temperature}°C for {ChamberId} to InfluxDB.", temperature, chamberId);
+        _influxClient.GetWriteApi().WritePoint(point, _influxBucket, _influxOrg);
     }
 }
