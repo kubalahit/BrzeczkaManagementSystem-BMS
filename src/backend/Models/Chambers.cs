@@ -7,4 +7,5 @@ public class Chamber
     public string Name { get; set; } = string.Empty;
     public double TargetTemperature { get; set; }
     public double Hysteresis { get; set; }
+    public string MacAddress { get; set; } = string.Empty;
 }

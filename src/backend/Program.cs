@@ -14,6 +14,8 @@ builder.Services.AddControllers(); // <-- DODANA KLUCZOWA LINIA
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddSingleton<HostIpService>();
+
 builder.Services.AddDbContext<BmsDbContext>(options =>
 {
     var connectionString = builder.Configuration.GetConnectionString("PostgresConnection");
@@ -52,8 +54,9 @@ builder.Services.AddSingleton<InfluxDBClient>(serviceProvider =>
 });
 
 // Rejestracja serwisów działających w tle
-builder.Services.AddHostedService<FakeSensorService>();
+//builder.Services.AddHostedService<FakeSensorService>();
 builder.Services.AddHostedService<MqttIngestionService>();
+builder.Services.AddHostedService<DeviceDiscoveryService>();
 
 
 // --- Konfiguracja Aplikacji ---

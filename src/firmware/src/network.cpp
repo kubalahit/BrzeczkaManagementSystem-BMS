@@ -6,23 +6,29 @@
 #include <WiFiManager.h>
 #include <PubSubClient.h>
 #include <Arduino.h>
-#include <Preferences.h> // <-- Nowa biblioteka do pamięci NVS
+#include <Preferences.h>
+#include <ESPmDNS.h>
+#include <ArduinoJson.h>
+
+// Definicja pinu przycisku "BOOT"
+const int CONFIG_BUTTON_PIN = 0;
 
 // === Zmienne globalne ===
-float targetTemperature = 19.0; // Wartość domyślna
-float hysteresis = 0.5;         // Wartość domyślna
+float targetTemperature = 19.0;
+float hysteresis = 0.5;
 char mqtt_server[40];
+char mqtt_client_id[32] = "chamber01"; // Domyślne ID
+// Bufory na dynamiczne tematy
+char status_topic[64];
+char temp_topic[64];
+char state_topic[64];
+char setpoint_topic[64];
 
 const int mqtt_port = 1883;
-const char *status_topic = "bms/status/chamber01";
-const char *temp_topic = "bms/telemetry/chamber01/temperature";
-const char *state_topic = "bms/telemetry/chamber01/cooler_state";
-const char *setpoint_topic = "bms/control/chamber01/setpoint";
-const char *mqtt_client_id = "chamber01";
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
-Preferences preferences; // Obiekt do zarządzania pamięcią
+Preferences preferences;
 
 // --- NOWA FUNKCJA: Callback dla przychodzących wiadomości MQTT ---
 void callback(char *topic, byte *payload, unsigned int length)
@@ -69,10 +75,13 @@ void reconnect()
 {
     while (!mqttClient.connected())
     {
-        Serial.print("Attempting MQTT connection...");
+        Serial.print("Attempting MQTT connection on IP: ");
+        Serial.print(mqtt_server);
+        Serial.print(" ... ");
         if (mqttClient.connect(mqtt_client_id, NULL, NULL, status_topic, 1, true, "OFFLINE"))
         {
             Serial.println("connected");
+            mqttClient.publish(status_topic, "ONLINE", true);
             // Po połączeniu, subskrybujemy nasz temat kontrolny
             mqttClient.subscribe(setpoint_topic);
             Serial.print("Subscribed to: ");
@@ -90,27 +99,94 @@ void reconnect()
 
 void setupNetwork()
 {
-    // Otwieramy przestrzeń w pamięci i wczytujemy zapisane ustawienia
-    preferences.begin("bms-settings", true);                      // true = read-only
-    targetTemperature = preferences.getFloat("targetTemp", 19.0); // Wczytaj lub użyj 19.0
-    hysteresis = preferences.getFloat("hysteresis", 0.5);         // Wczytaj lub użyj 0.5
+    // 1. Zawsze wczytujemy ostatnią znaną konfigurację z pamięci
+    preferences.begin("bms-settings", false);
+    preferences.getString("mqttServer", mqtt_server, sizeof(mqtt_server));
+    preferences.getString("clientId", mqtt_client_id, sizeof(mqtt_client_id));
+    // Wczytujemy też zapisane nastawy
+    targetTemperature = preferences.getFloat("targetTemp", 19.0);
+    hysteresis = preferences.getFloat("hysteresis", 0.5);
     preferences.end();
 
-    Serial.printf("Loaded settings - Target: %.2f C, Hysteresis: %.2f C\n", targetTemperature, hysteresis);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin();
+    Serial.print("Attempting to connect to last known WiFi...");
 
-    WiFiManager wm;
-    WiFiManagerParameter custom_mqtt_server("mqtt_server", "Adres IP brokera MQTT", "192.168.1.100", 40);
-    wm.addParameter(&custom_mqtt_server);
-
-    if (!wm.autoConnect("BMS-Konfiguracja"))
+    int connect_timeout = 15;
+    while (WiFi.status() != WL_CONNECTED && connect_timeout > 0)
     {
-        ESP.restart();
+        delay(1000);
+        Serial.print(".");
+        connect_timeout--;
     }
 
-    strcpy(mqtt_server, custom_mqtt_server.getValue());
+    bool needsConfig = (WiFi.status() != WL_CONNECTED || strlen(mqtt_server) == 0);
+
+    if (needsConfig)
+    {
+        Serial.println("\nConfiguration needed. Starting WiFiManager & Discovery Mode...");
+
+        WiFiManager wm;
+        if (!wm.autoConnect("BMS-Konfiguracja"))
+        {
+            ESP.restart();
+        }
+
+        String mac = WiFi.macAddress();
+        mac.replace(":", "");
+        String instanceName = "BMS-Chamber-" + mac;
+
+        if (MDNS.begin(instanceName.c_str()))
+        {
+            MDNS.addService("_bms-chamber", "_tcp", 80);
+            Serial.println("Service advertised: _bms-chamber._tcp.local");
+        }
+
+        WebServer server(80);
+        server.on("/configure", HTTP_POST, [&]()
+                  {
+            String body = server.arg("plain");
+            
+            JsonDocument doc;
+            deserializeJson(doc, body);
+
+            preferences.begin("bms-settings", false);
+            preferences.putString("mqttServer", doc["mqtt_server"].as<const char*>());
+            preferences.putString("clientId", doc["client_id"].as<const char*>());
+            preferences.putString("statusTopic", doc["status_topic"].as<const char*>());
+            preferences.putString("tempTopic", doc["temp_topic"].as<const char*>());
+            preferences.putString("stateTopic", doc["state_topic"].as<const char*>());
+            preferences.putString("setpointTopic", doc["setpoint_topic"].as<const char*>());
+            preferences.end();
+            
+            server.send(200, "text/plain", "OK. Restarting.");
+            delay(1000);
+            ESP.restart(); });
+        server.begin();
+
+        Serial.println("Waiting for configuration from BMS server...");
+        while (true)
+        {
+            server.handleClient();
+            // MDNS.update() nie jest potrzebne w tej pętli
+            delay(100);
+        }
+    }
+
+    // Jeśli konfiguracja jest OK, budujemy tematy i kontynuujemy
+    preferences.begin("bms-settings", true);
+    snprintf(status_topic, sizeof(status_topic), "bms/status/%s", mqtt_client_id);
+    snprintf(temp_topic, sizeof(temp_topic), "bms/telemetry/%s/temperature", mqtt_client_id);
+    snprintf(state_topic, sizeof(state_topic), "bms/telemetry/%s/cooler_state", mqtt_client_id);
+    snprintf(setpoint_topic, sizeof(setpoint_topic), "bms/control/%s/setpoint", mqtt_client_id);
+    preferences.end();
+
+    Serial.println("\nWiFi connected!");
+    Serial.printf("IP address: %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("MQTT Broker: %s\n", mqtt_server);
 
     mqttClient.setServer(mqtt_server, mqtt_port);
-    mqttClient.setCallback(callback); // <-- Rejestrujemy naszą funkcję callback
+    mqttClient.setCallback(callback);
 }
 
 void loopNetwork()

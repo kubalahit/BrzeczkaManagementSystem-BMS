@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   mosquitto:
     image: eclipse-mosquitto:2.0
@@ -6,6 +8,8 @@ services:
     ports:
       - "1883:1883"
       - "9001:9001"
+    networks:
+      - bms-net
     volumes:
       - ./docker/mosquitto/config:/mosquitto/config
       - ./docker/mosquitto/data:/mosquitto/data
@@ -17,6 +21,8 @@ services:
     restart: unless-stopped
     ports:
       - "8086:8086"
+    networks:
+      - bms-net
     volumes:
       - ./docker/influxdb/data:/var/lib/influxdb2
     environment:
@@ -33,6 +39,8 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    networks:
+      - bms-net
     volumes:
       - ./docker/grafana/data:/var/lib/grafana
 
@@ -46,15 +54,19 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
     ports:
       - "5432:5432"
+    networks:
+      - bms-net
     volumes:
       - ./docker/postgres/data:/var/lib/postgresql/data
 
   backend:
     container_name: bms-backend
     build:
-      context: ./src/backend # Wskazuje Dockerowi, gdzie jest nasz Dockerfile
+      context: ./src/backend
     ports:
-      - "8080:8080" # Mapujemy port API na naszym komputerze
+      - "8080:8080"
+    networks:
+      - bms-net
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
@@ -62,9 +74,28 @@ services:
       - INFLUXDB_ORG=${INFLUXDB_ORG}
       - INFLUXDB_BUCKET=${INFLUXDB_BUCKET}
       - INFLUXDB_URL=${INFLUXDB_URL}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - MQTT_BROKER_HOST_IP=${MQTT_BROKER_HOST_IP}
     depends_on:
-      # Mówi Dockerowi, że backend musi startować PO tych usługach
       - mosquitto
       - influxdb
-      - grafana
       - postgres
+
+  mdns-repeater:
+    image: raetha/mdns-repeater
+    container_name: bms-mdns-repeater
+    network_mode: "host"
+    privileged: true
+    restart: unless-stopped
+    environment:
+      - EXTERNAL_INTERFACE=${EXTERNAL_INTERFACE}
+      - DOCKER_NETWORK_NAME=${DOCKER_NETWORK_NAME}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+# Definiujemy naszą sieć wirtualną na najwyższym poziomie
+networks:
+  bms-net:
+    name: ${DOCKER_NETWORK_NAME}
